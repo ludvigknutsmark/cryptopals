@@ -1,4 +1,6 @@
 from base64 import b64encode
+from Crypto.Random import get_random_bytes
+from Crypto.Random.random import randint
 
 def hex2b64(heks):
     b = bytes.fromhex(heks)
@@ -76,6 +78,84 @@ def find_xor_key(ciphertext):
 
     possible_key = sorted(candidates.items(), key=lambda x: x[1], reverse=True)[0][0]
     return int(possible_key)
+
+def detect_duplicates(data, BLOCKSIZE):
+    blks = [data[i:i+BLOCKSIZE] for i in range(0,len(data), BLOCKSIZE)]
+    # Ugly but readable code for finding duplicate values in list...
+    dupes = []
+    dupes_found = False
+    for blk in blks:
+        if blk not in dupes:
+            dupes.append(blk)
+        else:
+            dupes_found = True
+
+    return dupes_found
+    
+def cookie_parser(cookie):
+    kv = cookie.split("&")
+    obj = {}
+    for pair in kv:
+        key,value=pair.split("=")
+        try:
+            obj[key] = int(value)
+        except:
+            obj[key] = value
+    
+    return obj
+
+def profile_for(email):
+    email.replace("&","")
+    email.replace("=","")
+    uid = randint(0,10)
+    role= "user"
+    cookie = "email="+email+"&uid="+str(uid)+"&role="+role
+    return cookie_parser(cookie), cookie #unsure what to provide atm
+
+#------------------------------------------
+#           AES STUFF
+#------------------------------------------
+def generate_key(blksize=16):
+    return get_random_bytes(blksize)    
+
+class pkcs7():
+    def pad(data, blksize=16):
+        padsize = (blksize-len(data)) % blksize
+        return data+padsize.to_bytes(1, 'big')*padsize
+
+    def unpad(data,blksize):
+        print("unpad")
+
+from Crypto.Cipher import AES
+class AES_CBC():
+    def __init__(self, key, IV, blksize=16):
+        self.key = key
+        self.IV = IV
+        self.blksize = blksize
+        self.cipher = AES.new(key, AES.MODE_ECB)
+
+    def encrypt(self, data):
+        padded = pkcs7.pad(data, self.blksize)
+        encrypted = bytes()
+        encrypted += self.cipher.encrypt(xor(self.IV, padded[:self.blksize]))
+
+        for i in range(self.blksize, len(padded), self.blksize):
+            cur_blk = padded[i:i+self.blksize]
+            prev_blk = encrypted[-self.blksize:]
+            encrypted += (self.cipher.encrypt(xor(cur_blk, prev_blk)))
+
+        return encrypted
+
+    def decrypt(self, data):
+        prev_blk = self.IV
+        
+        plaintext = bytes()
+        for i in range(0, len(data), self.blksize):
+            cur_blk = data[i:i+self.blksize]
+            plaintext += xor(self.cipher.decrypt(cur_blk), prev_blk)
+            prev_blk = cur_blk
+
+        return plaintext
 
 if __name__ == "__main__":
     assert hex2b64("49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d") == "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t".encode()

@@ -93,6 +93,7 @@ def detect_duplicates(data, BLOCKSIZE):
     return dupes_found
     
 def cookie_parser(cookie):
+    print(cookie)
     kv = cookie.split("&")
     obj = {}
     for pair in kv:
@@ -123,8 +124,17 @@ class pkcs7():
         padsize = (blksize-len(data)) % blksize
         return data+padsize.to_bytes(1, 'big')*padsize
 
-    def unpad(data,blksize):
-        print("unpad")
+    def unpad(data,blksize=16):
+        if len(data) % blksize != 0:
+            raise ValueError("Data must be padded to blocksize")
+        
+        pad_byte = data[-1]
+
+        for i in range(1, pad_byte+1):
+            if data[-i] != pad_byte:
+                raise ValueError("Incorrect padding!")
+        
+        return data[:-pad_byte]
 
 from Crypto.Cipher import AES
 class AES_CBC():

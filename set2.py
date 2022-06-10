@@ -47,7 +47,6 @@ def challenge11():
         print("ECB MODE DETECTED")
 
 
-
 def new_oracle(inpt):
     KEY = b"YELLOW SUBMARINE"
     data = b64decode("Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg \
@@ -114,7 +113,8 @@ def challenge13():
 
     # Cut and paste. Create a block with admin as email and replace the last 16 bytes which is role=user
     # email=fo@bar.com&uid=x&role=user
-    obj, attack = profile_for("A"*10+"admin;AAAAAAAAA"+"}")
+    
+    obj, attack = profile_for("A"*10+"admin\'}AAAAAAAA"+"}")
      
     enc = cipher.encrypt(pkcs7.pad(attack.encode()))
     new_ct = bytearray(ct)
@@ -122,8 +122,8 @@ def challenge13():
     print(new_ct)
 
     encoded = cipher.decrypt(new_ct)
-    print(encoded)
-    print(cookie_parser(encoded.decode()))
+    print(bytes(encoded))
+    print(cookie_parser(bytes(encoded).decode()))
     
     # This feels unintended as the kv-parser is not used and the role=admin is not really true (role=admin;AA...). However, the task specifies that
     # only the user input to profile_for is what the attacker can use, which means that everything else is out of scope
@@ -145,6 +145,8 @@ YnkK")
         return self.cipher.encrypt(pkcs7.pad(self.random+inpt+data))
         
 def challenge14():
+    print("TODO")
+
     KEY = b"YELLOW SUBMARINE"
     oracle = hard_oracle(KEY)
 
@@ -157,6 +159,68 @@ def challenge14():
             lg = len(l1)-(i-1)
             break
 
+def challenge15():
+    try:
+        pad = b"ICE ICE BABY\x04\x04\x04\x04"
+        print(pkcs7.unpad(pad))
+    except:
+        print("Test 1 failed")
+
+    try:
+        pad = b"ICE ICE BABY\x05\x05\x05\x05"
+        pkcs7.unpad(pad)
+    except:
+        print("Test 2 passed")
+    
+    try:
+        pad = b"ICE ICE BABY\x01\x02\x03\x04"
+        pkcs7.unpad(pad)
+    except:
+        print("Test 3 passed")
+
+
+def cookie_cbc(inpt):
+    prepend=b"comment1=cooking%20MCs;userdata="
+    append=b";comment2=%20like%20a%20pound%20of%20bacon"
+    inpt = inpt.replace(b";", b"\";\"")
+    inpt = inpt.replace(b"=", b"\"=\"")
+
+    string = prepend+inpt+append
+
+    KEY = b"YELLOW SUBMARINE"
+    IV = b"THISISA16BYTESTRX"
+    
+    return AES_CBC(KEY,IV).encrypt(string)
+    
+
+def validator(enc_cookie):
+    KEY = b"YELLOW SUBMARINE"
+    IV = b"THISISA16BYTESTRX"
+    
+    cookie = AES_CBC(KEY,IV).decrypt(enc_cookie)
+    
+    print(cookie) 
+    if cookie.find(b";admin=true;") > 0:
+        return True
+    else:
+        return False
+
+def challenge16():
+    enc_cookie = cookie_cbc(b"A"*32)
+    
+    print("Pre flip: is admin? ", validator(enc_cookie))
+    target = b";admin=true;"
+    before = b"AAAAAAAAAAAA"
+
+    # start flip at 32+4
+    to_flip = list(enc_cookie)
+    for i in range(len(target)):
+        to_flip[36+i] = enc_cookie[36+i]^target[i]^before[i]
+
+    flipped = bytes(to_flip)
+    print("Post flip: Is admin? ", validator(flipped))
+
+
 if __name__ == "__main__":
     challenge9()
     print("------------")
@@ -166,7 +230,11 @@ if __name__ == "__main__":
     print("------------")
     challenge12()
     print("------------")
-    #challenge13()
+    challenge13()
     print("------------")
     challenge14()
+    print("------------")
+    challenge15()
+    print("------------")
+    challenge16()
     print("------------")

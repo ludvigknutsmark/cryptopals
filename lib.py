@@ -128,6 +128,9 @@ class pkcs7():
         if len(data) % blksize != 0:
             raise ValueError("Data must be padded to blocksize")
         
+        if len(data) % blksize == 0:
+            return data
+
         pad_byte = data[-1]
 
         for i in range(1, pad_byte+1):
